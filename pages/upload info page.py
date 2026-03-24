@@ -95,7 +95,7 @@ MODEL_PATH = "/Users/andrewwang/Desktop/ancientartifact_model_v6.pt"
 INPUT_SIZE = 64
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CSV_FILE = os.path.join(BASE_DIR, "../submissions.csv")
+CSV_FILE = os.path.join(BASE_DIR, "..pages//submissions.csv")
 IMAGE_DIR = os.path.join(BASE_DIR, "../uploaded_images")
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
