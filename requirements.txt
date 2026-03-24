@@ -1,0 +1,5 @@
+streamlit
+torch==2.2.2
+numpy
+pillow
+opencv-python
