@@ -11,17 +11,12 @@ from datetime import datetime
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# --- Hide sidebar ---
+# ---------------- STYLE ----------------
 st.markdown("""
 <style>
 section[data-testid="stSidebar"] {display: none !important;}
 div[data-testid="stSidebarCollapsedControl"] {display: none !important;}
-</style>
-""", unsafe_allow_html=True)
 
-# --- Ribbon style ---
-st.markdown("""
-<style>
 .ribbon-container {
     position: fixed;
     top: 0;
@@ -35,14 +30,13 @@ st.markdown("""
     z-index: 9999;
 }
 
-/* Push content down */
 .block-container {
     padding-top: 100px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Ribbon buttons (aligned horizontally) ---
+# ---------------- NAVIGATION ----------------
 col1, col2, col3, col4, _ = st.columns([1,1,1,1,1])
 
 with col1:
@@ -61,43 +55,23 @@ with col4:
     if st.button("All Artifacts"):
         st.switch_page("pages/show all submissions.py")
 
-
-
-# ------------------ HIDE SIDEBAR ------------------
-st.markdown("""
-<style>
-section[data-testid="stSidebar"] {display: none !important;}
-div[data-testid="stSidebarCollapsedControl"] {display: none !important;}
-</style>
-""", unsafe_allow_html=True)
-
-# ------------------ RIBBON ------------------
-st.markdown("""
-<style>
-.ribbon-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 60px;
-    background-color: rgba(255, 75, 75, 0.9);
-    display: flex;
-    align-items: center;
-    padding-left: 20px;
-    z-index: 9999;
-}
-.block-container {padding-top: 100px;}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- CONFIG ----------------
-MODEL_PATH = "/Users/andrewwang/Desktop/ancientartifact_model_v6.pt"
-INPUT_SIZE = 64
-
+# ---------------- PATH SETUP ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CSV_FILE = os.path.join(BASE_DIR, "../pages/submissions.csv")
+
+CSV_FILE = os.path.join(BASE_DIR, "submissions.csv")
 IMAGE_DIR = os.path.join(BASE_DIR, "../uploaded_images")
+
 os.makedirs(IMAGE_DIR, exist_ok=True)
+
+# ✅ Ensure CSV exists
+if not os.path.exists(CSV_FILE):
+    with open(CSV_FILE, "w", encoding="utf-8") as f:
+        f.write("")
+
+# ✅ FIXED model path (PUT MODEL IN /model FOLDER IN REPO)
+MODEL_PATH = os.path.join(BASE_DIR, "../model/ancientartifact_model_v6.pt")
+
+INPUT_SIZE = 64
 
 logging.getLogger("ultralytics").setLevel(logging.WARNING)
 logging.getLogger("torch").setLevel(logging.WARNING)
@@ -115,7 +89,7 @@ def choose_device():
     if torch.cuda.is_available(): return "cuda"
     return "cpu"
 
-# ---------------- ARTIFACT CLASSIFIER ----------------
+# ---------------- MODEL ----------------
 class ArtifactClassifier:
     def __init__(self, model_path: str, device: str, input_size: int = 224):
         self.device = device
@@ -152,24 +126,27 @@ def load_model():
 
 classifier = load_model()
 
-# ---------------- SAVE FUNCTION ----------------
+# ---------------- SAVE ----------------
 def save_submission(data, image_obj):
-    # Save image
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{data['name'].replace(' ', '_')}.png"
+
     image_path = os.path.join(IMAGE_DIR, filename)
     image_obj.save(image_path)
+
     data['image_path'] = os.path.relpath(image_path, BASE_DIR)
 
-    # Save CSV
     file_exists = os.path.isfile(CSV_FILE)
+
     with open(CSV_FILE, mode="a", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=data.keys())
-        if not file_exists: writer.writeheader()
+        if not file_exists:
+            writer.writeheader()
         writer.writerow(data)
 
-# ---------------- SESSION STATE ----------------
-if "submitted" not in st.session_state: st.session_state.submitted = False
+# ---------------- STATE ----------------
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
 
 # ---------------- UI ----------------
 def show_thank_you():
@@ -191,8 +168,10 @@ def show_form():
     if File is not None:
         image = Image.open(File).convert("RGB")
         st.image(image, use_container_width=True)
+
         frame = np.array(image)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
         try:
             idx, conf = classifier.predict(frame)
             class_name = class_names.get(idx, f"cls_{idx}")
@@ -202,7 +181,6 @@ def show_form():
             st.error("Prediction failed")
             traceback.print_exc()
 
-    # INPUT FIELDS
     name = st.text_input("Name", max_chars=45)
     primary_contact = st.text_input("Primary contact details", max_chars=45)
     secondary_contact = st.text_input("Secondary contact details")
@@ -220,7 +198,9 @@ def show_form():
             "prediction": class_name if class_name else "None",
             "confidence": f"{conf*100:.2f}%" if conf else "N/A"
         }
+
         save_submission(submission, image)
+
         st.success(f"Saved submission to: {CSV_FILE}")
         st.session_state.submitted = True
         st.rerun()
